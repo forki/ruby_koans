@@ -1,4 +1,4 @@
-require 'edgecase'
+require File.expand_path(File.dirname(__FILE__) + '/edgecase')
 
 def my_global_method(a,b)
   a + b
@@ -10,15 +10,15 @@ class AboutMethods < EdgeCase::Koan
     assert_equal 5, my_global_method(2,3)
   end
 
-  def test_calling_global_methods_without_parenthesis
+  def test_calling_global_methods_without_parentheses
     result = my_global_method 2, 3
     assert_equal 5, result
   end
 
   # (NOTE: We are Using eval below because the example code is
   # considered to be syntactically invalid).
-  def test_sometimes_missing_parenthesis_are_ambiguous
-    eval "assert_equal(5, my_global_method(2, 3))" # ENABLE CHECK
+  def test_sometimes_missing_parentheses_are_ambiguous
+    eval "assert_equal 5, my_global_method 2, 3" # ENABLE CHECK
     #
     # Ruby doesn't know if you mean:
     #

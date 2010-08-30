@@ -6,12 +6,24 @@ require 'test/unit/assertions'
 class FillMeInError < StandardError
 end
 
-def __(value="FILL ME IN")
-  value
+def in_ruby_version(version)
+  yield if RUBY_VERSION =~ /^#{version}/
 end
 
-def _n_(value=999999)
-  value
+def __(value="FILL ME IN", value19=:mu)
+  if RUBY_VERSION < "1.9"
+    value
+  else
+    (value19 == :mu) ? value : value19
+  end
+end
+
+def _n_(value=999999, value19=:mu)
+  if RUBY_VERSION < "1.9"
+    value
+  else
+    (value19 == :mu) ? value : value19
+  end
 end
 
 def ___(value=FillMeInError)
@@ -24,13 +36,56 @@ class Object
       self.send(method)
     end
   end
+
+  in_ruby_version("1.9") do
+    public :method_missing
+  end
 end
 
 module EdgeCase
+
+  module Color
+    #shamelessly stolen (and modified) from redgreen
+    COLORS = {
+      :clear   => 0,  :black   => 30, :red   => 31,
+      :green   => 32, :yellow  => 33, :blue  => 34,
+      :magenta => 35, :cyan    => 36,
+    }
+
+    module_function
+
+    COLORS.each do |color, value|
+      module_eval "def #{color}(string); colorize(string, #{value}); end"
+      module_function color
+    end
+
+    def colorize(string, color_value)
+      if ENV['NO_COLOR']
+        string
+      else
+        color(color_value) + string + color(COLORS[:clear])
+      end
+    end
+
+    def color(color_value)
+      "\e[#{color_value}m"
+    end
+  end
+
   class Sensei
     attr_reader :failure, :failed_test
 
-    AssertionError = Test::Unit::AssertionFailedError
+    in_ruby_version("1.8") do
+      AssertionError = Test::Unit::AssertionFailedError
+    end
+
+    in_ruby_version("1.9") do
+      if defined?(MiniTest)
+        AssertionError = MiniTest::Assertion
+      else
+        AssertionError = Test::Unit::AssertionFailedError
+      end
+    end
 
     def initialize
       @pass_count = 0
@@ -41,9 +96,9 @@ module EdgeCase
     def accumulate(test)
       if test.passed?
         @pass_count += 1
-        puts "  #{test.name} has expanded your awareness."
+        puts Color.green("  #{test.name} has expanded your awareness.")
       else
-        puts "  #{test.name} has damaged your karma."
+        puts Color.red("  #{test.name} has damaged your karma.")
         @failed_test = test
         @failure = test.failure
         throw :edgecase_exit
@@ -61,18 +116,19 @@ module EdgeCase
     def report
       if failed?
         puts
-        puts "You have not yet reached enlightenment ..."
-        puts failure.message
+        puts Color.green("You have not yet reached enlightenment ...")
+        puts Color.red(failure.message)
         puts
-        puts "Please meditate on the following code:"
+        puts Color.green("Please meditate on the following code:")
         if assert_failed?
-          puts find_interesting_lines(failure.backtrace)
+          #puts find_interesting_lines(failure.backtrace)
+          puts find_interesting_lines(failure.backtrace).collect {|l| Color.red(l) }
         else
-          puts failure.backtrace
+          puts Color.red(failure.backtrace)
         end
         puts
       end
-      say_something_zenlike
+      puts Color.green(a_zenlike_statement)
     end
 
     def find_interesting_lines(backtrace)
@@ -83,28 +139,29 @@ module EdgeCase
 
     # Hat's tip to Ara T. Howard for the zen statements from his
     # metakoans Ruby Quiz (http://rubyquiz.com/quiz67.html)
-    def say_something_zenlike
+    def a_zenlike_statement
       puts
       if !failed?
-        puts "Mountains are again merely mountains"
+        zen_statement =  "Mountains are again merely mountains"
       else
-        case (@pass_count % 10)
+        zen_statement = case (@pass_count % 10)
         when 0
-          puts "mountains are merely mountains"
+          "mountains are merely mountains"
         when 1, 2
-          puts "learn the rules so you know how to break them properly"
+          "learn the rules so you know how to break them properly"
         when 3, 4
-          puts "remember that silence is sometimes the best answer"
+          "remember that silence is sometimes the best answer"
         when 5, 6
-          puts "sleep is the best meditation"
+          "sleep is the best meditation"
         when 7, 8
-          puts "when you lose, don't lose the lesson"
+          "when you lose, don't lose the lesson"
         else
-          puts "things are not what they appear to be: nor are they otherwise"
+          "things are not what they appear to be: nor are they otherwise"
         end
       end
+      zen_statement
     end
-  end      
+  end
 
   class Koan
     include Test::Unit::Assertions
@@ -142,7 +199,7 @@ module EdgeCase
 
       def run_tests(accumulator)
         puts
-        puts "Thinking #{self}"
+        puts Color.green("Thinking #{self}")
         testmethods.each do |m|
           self.run_test(m, accumulator) if Koan.test_pattern =~ m.to_s
         end
@@ -153,12 +210,12 @@ module EdgeCase
         test.setup
         begin
           test.send(method)
-        rescue StandardError => ex
+        rescue StandardError, EdgeCase::Sensei::AssertionError => ex
           test.failed(ex)
         ensure
           begin
             test.teardown
-          rescue StandardError => ex
+          rescue StandardError, EdgeCase::Sensei::AssertionError => ex
             test.failed(ex) if test.passed?
           end
         end
@@ -181,7 +238,7 @@ module EdgeCase
               load(arg)
             else
               fail "Unknown command line argument '#{arg}'"
-            end              
+            end
           end
         end
       end

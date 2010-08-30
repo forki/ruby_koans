@@ -21,6 +21,7 @@ module Koans
     line = line.gsub(/\b____\([^\)]+\)/, "____")
     line = line.gsub(/\b___\([^\)]+\)/, "___")
     line = line.gsub(/\b__\([^\)]+\)/, "__")
+    line = line.gsub(/\b_n_\([^\)]+\)/, "_n_")
     line = line.gsub(%r(/\#\{__\}/), "/__/")
     line
   end
@@ -28,6 +29,8 @@ module Koans
   def Koans.make_koan_file(infile, outfile)
     if infile =~ /edgecase/
       cp infile, outfile
+    elsif infile =~ /autotest/
+      cp_r infile, outfile
     else
       open(infile) do |ins|
         open(outfile, "w") do |outs|
